@@ -1,0 +1,117 @@
+import java.util.ArrayList;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class Philosopher extends Thread {
+    private final Lock leftChopstick;
+    private final Lock rightChopstick;
+    private final Waiter waiter;
+
+    public Philosopher(int id, Lock leftChopstick, Lock rightChopstick, Waiter waiter) {
+        super("Philosopher-" + id);
+        this.leftChopstick = leftChopstick;
+        this.rightChopstick = rightChopstick;
+        this.waiter = waiter;
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            // Think
+            think();
+
+            // Pick up chopsticks
+            synchronized (waiter) {
+                waiter.request(this);
+                leftChopstick.lock();
+                rightChopstick.lock();
+            }
+
+            // Eat
+            eat();
+
+            // Put down chopsticks
+            rightChopstick.unlock();
+            leftChopstick.unlock();
+            waiter.release(this);
+        }
+    }
+
+    private void think() {
+        try {
+            Thread.sleep((long) (Math.random() * 1000));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void eat() {
+        try {
+            Thread.sleep((long) (Math.random() * 1000));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+class Waiter {
+    private final Lock lock;
+    private final ArrayList<Philosopher> philosophers;
+
+    public Waiter() {
+        this.lock = new ReentrantLock();
+        this.philosophers = new ArrayList<>();
+    }
+
+    public void request(Philosopher philosopher) {
+        lock.lock();
+        try {
+            if (philosophers.size() < 4) {
+                philosophers.add(philosopher);
+            } else {
+                philosopher.leftChopstick.unlock();
+                philosopher.rightChopstick.unlock();
+                lock.unlock();
+                philosopher.think();
+                request(philosopher);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void release(Philosopher philosopher) {
+        lock.lock();
+        philosophers.remove(philosopher);
+        lock.unlock();
+    }
+}
+
+public class DiningPhilosophers {
+    public static void main(String[] args) throws InterruptedException {
+        // Create five chopsticks (locks)
+        Lock[] chopsticks = new Lock[5];
+        for (int i = 0; i < chopsticks.length; i++) {
+            chopsticks[i] = new ReentrantLock();
+        }
+
+        // Create waiter
+        Waiter waiter = new Waiter();
+
+        // Create five philosophers
+        Philosopher[] philosophers = new Philosopher[5];
+        for (int i = 0; i < philosophers.length; i++) {
+            philosophers[i] = new Philosopher(i, chopsticks[i], chopsticks[(i + 1) % 5], waiter);
+        }
+
+        // Start all philosophers
+        for (Philosopher philosopher : philosophers) {
+            philosopher.start();
+        }
+
+        // Wait for all philosophers to finish
+        for (Philosopher philosopher : philosophers) {
+            philosopher.join();
+        }
+    }
+}

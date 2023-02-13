@@ -1,0 +1,76 @@
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class Philosopher extends Thread {
+
+    private String name;
+    private Lock leftChopstick;
+    private Lock rightChopstick;
+
+    public Philosopher(String name, Lock leftChopstick, Lock rightChopstick) {
+        this.name = name;
+        this.leftChopstick = leftChopstick;
+        this.rightChopstick = rightChopstick;
+    }
+
+    public void run() {
+        while (true) {
+            // Think
+            think();
+
+            // Pick up chopsticks
+            leftChopstick.lock();
+            boolean locked = rightChopstick.tryLock();
+            if (locked) {
+                break;
+            }
+            leftChopstick.unlock();
+
+            // Didn't get both chopsticks, so put down the one we have and think again
+            think();
+        }
+
+        // Eat
+        eat();
+
+        // Put down chopsticks
+        rightChopstick.unlock();
+        leftChopstick.unlock();
+    }
+
+    public void think() {
+        // do nothing
+    }
+
+    public void eat() {
+        // do nothing
+    }
+
+    public static void main(String[] args) {
+        // Create five chopsticks (locks)
+        Lock[] chopsticks = new ReentrantLock[5];
+        for (int i = 0; i < 5; i++) {
+            chopsticks[i] = new ReentrantLock();
+        }
+
+        // Create five philosophers
+        Philosopher[] philosophers = new Philosopher[5];
+        for (int i = 0; i < 5; i++) {
+            philosophers[i] = new Philosopher(String.valueOf(i), chopsticks[i], chopsticks[(i + 1) % 5]);
+        }
+
+        // Start all philosophers
+        for (Philosopher philosopher : philosophers) {
+            philosopher.start();
+        }
+
+        // Wait for all philosophers to finish
+        for (Philosopher philosopher : philosophers) {
+            try {
+                philosopher.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}

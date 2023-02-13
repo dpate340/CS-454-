@@ -1,0 +1,115 @@
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.Random;
+
+class Philosopher implements Runnable {
+    private final String name;
+    private final Lock leftChopstick;
+    private final Lock rightChopstick;
+    private final int rank;
+
+    public Philosopher(String name, Lock leftChopstick, Lock rightChopstick, int rank) {
+        this.name = name;
+        this.leftChopstick = leftChopstick;
+        this.rightChopstick = rightChopstick;
+        this.rank = rank;
+    }
+
+    public void run() {
+        while (true) {
+            // Think
+            think();
+
+            // Pick up chopsticks
+            pickUpChopsticks();
+
+            // Eat
+            eat();
+
+            // Put down chopsticks
+            putDownChopsticks();
+        }
+    }
+
+    private void think() {
+        try {
+            Thread.sleep(new Random().nextInt(1000));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void eat() {
+        try {
+            Thread.sleep(new Random().nextInt(1000));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void pickUpChopsticks() {
+        while (true) {
+            // Pick up the chopstick with the lower rank first
+            Lock firstChopstick = rank == 0 ? leftChopstick : rightChopstick;
+            Lock secondChopstick = rank == 0 ? rightChopstick : leftChopstick;
+
+            // Try to pick up the first chopstick
+            if (firstChopstick.tryLock()) {
+                // If the first chopstick is available, try to pick up the second chopstick
+                if (secondChopstick.tryLock()) {
+                    return;
+                } else {
+                    firstChopstick.unlock();
+                }
+            }
+
+            try {
+                Thread.sleep(new Random().nextInt(1000));
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void putDownChopsticks() {
+        leftChopstick.unlock();
+        rightChopstick.unlock();
+    }
+}
+
+public class DiningPhilosophers {
+    public static void main(String[] args) {
+        // Define the number of philosophers
+        int n = 10;
+
+        // Create n chopsticks (locks)
+        Lock[] chopsticks = new ReentrantLock[n];
+
+        for (int i = 0; i < n; i++) {
+            chopsticks[i] = new ReentrantLock();
+        }
+
+        // Assign ranks to the philosophers
+        int[] ranks = new int[n];
+        for (int i = 0; i < n; i++) {
+            ranks[i] = i;
+        }
+
+        // Create n philosophers
+        Thread[] threads = new Thread[n];
+        for (int i = 0; i < n; i++) {
+            Philosopher philosopher = new Philosopher("Philosopher " + i, chopsticks[i], chopsticks[(i + 1) % n], ranks[i]);
+            threads[i] = new Thread(philosopher);
+            threads[i].start();
+        }
+
+        // Wait for all philosophers to finish
+        for (int i = 0; i < n; i++) {
+            try {
+                threads[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}

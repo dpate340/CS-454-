@@ -1,0 +1,112 @@
+import java.util.Random;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class Philosopher extends Thread {
+    private final int id;
+    private final Lock leftChopstick;
+    private final Lock rightChopstick;
+    private final int[] ranks;
+    private final Random random;
+
+    public Philosopher(int id, Lock leftChopstick, Lock rightChopstick, int[] ranks) {
+        this.id = id;
+        this.leftChopstick = leftChopstick;
+        this.rightChopstick = rightChopstick;
+        this.ranks = ranks;
+        this.random = new Random();
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            // Think
+            think();
+
+            // Pick up chopsticks
+            pickUpChopsticks();
+
+            // Eat
+            eat();
+
+            // Put down chopsticks
+            putDownChopsticks();
+        }
+    }
+
+    private void think() {
+        try {
+            Thread.sleep(random.nextInt(1000));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void eat() {
+        try {
+            Thread.sleep(random.nextInt(1000));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void pickUpChopsticks() {
+        while (true) {
+            // Pick up the chopstick with the lower rank first
+            int rank1 = ranks[System.identityHashCode(leftChopstick)];
+            int rank2 = ranks[System.identityHashCode(rightChopstick)];
+            Lock firstChopstick = rank1 < rank2 ? leftChopstick : rightChopstick;
+            Lock secondChopstick = rank1 < rank2 ? rightChopstick : leftChopstick;
+
+            // Try to pick up the first chopstick
+            if (firstChopstick.tryLock()) {
+                try {
+                    // If the first chopstick is available, try to pick up the second chopstick
+                    if (secondChopstick.tryLock()) {
+                        return;
+                    }
+                } finally {
+                    if (!secondChopstick.isHeldByCurrentThread()) {
+                        firstChopstick.unlock();
+                    }
+                }
+            }
+            try {
+                Thread.sleep(random.nextInt(1000));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private void putDownChopsticks() {
+        leftChopstick.unlock();
+        rightChopstick.unlock();
+    }
+
+    public static void main(String[] args) {
+        // Create five chopsticks (locks)
+        Lock[] chopsticks = { new ReentrantLock(), new ReentrantLock(), new ReentrantLock(), new ReentrantLock(), new ReentrantLock() };
+
+        // Assign ranks to the philosophers
+        int[] ranks = new int[chopsticks.length];
+        for (int i = 0; i < ranks.length; i++) {
+            ranks[System.identityHashCode(chopsticks[i])] = i;
+        }
+
+        // Create five philosophers
+        Philosopher[] philosophers = new Philosopher[chopsticks.length];
+        for (int i = 0; i < philosophers.length; i++) {
+            philosophers[i] = new Philosopher(i, chopsticks[i], chopsticks[(i + 1) % chopsticks.length], ranks);
+        }
+
+        // Start all philosophers
+        for (Philosopher philosopher : philosophers) {
+            philosopher.start();
+        }
+
+        // Wait for all philosophers to finish
+        for (Philosopher philosopher : philosophers) {
+            try {
+                philosopher.join();
+            } catch (InterruptedException e)
